@@ -1,0 +1,72 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: badger
+  labels:
+    app.kubernetes.io/name: badger
+    app.kubernetes.io/instance: badger
+  namespace: app
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 80
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: badger
+    app.kubernetes.io/instance: badger
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: badger
+  labels:
+    app.kubernetes.io/name: badger
+    app.kubernetes.io/instance: badger
+  namespace: app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: badger
+      app.kubernetes.io/instance: badger
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: badger
+        app.kubernetes.io/instance: badger
+    spec:
+      securityContext:
+        {}
+      containers:
+        - name: badger
+          securityContext:
+            {}
+          image: "<image>"
+          imagePullPolicy: IfNotPresent
+          env:
+          - name: HEALTH_KEY
+            value: '<id>'
+          - name: CACHE_STORAGE_ACCOUNT
+            value: '<storage_key>'
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz/<id>
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /healthz/<id>
+              port: http
+          # resources:
+          #   limits:
+          #     cpu: 
+          #     memory: 
+          #   requests:
+          #     cpu: 
+          #     memory: 
