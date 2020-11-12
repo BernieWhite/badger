@@ -1,0 +1,66 @@
+
+
+---
+apiVersion: "aadpodidentity.k8s.io/v1"
+kind: AzureIdentity
+metadata:
+  name: badger-keda-scaler
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    aadpodidentity.k8s.io/Behavior: namespaced
+spec:
+  type: 0
+  resourceID: '<id>'
+  clientID: '<objectid>'
+
+---
+apiVersion: "aadpodidentity.k8s.io/v1"
+kind: AzureIdentityBinding
+metadata:
+  name: badger-keda-scaler
+  namespace: {{ .Release.Namespace }}
+spec:
+  azureIdentity: badger-keda-scaler
+  selector: badger-keda-scaler
+
+---
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: badger-keda-scaler
+  namespace: {{ .Release.Namespace }}
+spec:
+  podIdentity:
+    provider: azure
+
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: badger-keda-scaler
+  namespace: {{ .Release.Namespace }}
+  labels:
+    deploymentName: badger
+spec:
+  scaleTargetRef:
+    kind: Deployment
+    name: badger
+  pollingInterval: 30
+  cooldownPeriod: 30
+  minReplicaCount: {{ .Values.autoscaling.minReplicas }}
+  maxReplicaCount: {{ .Values.autoscaling.maxReplicas }}
+  triggers:
+  - type: azure-log-analytics
+    metadata:
+      workspaceId: {{ .Values.autoscaling.workspaceId }}
+      query: |
+        let insightsId = "{{ .Values.autoscaling.resourceId }}";
+        let ThresholdCoefficient = 1.0;
+        AppRequests
+        | where TimeGenerated >= ago(10m)
+        | where _ResourceId == insightsId
+        | summarize MetricValue=count()
+        | project MetricValue, Threshold = MetricValue * ThresholdCoefficient
+      threshold: "10"
+    authenticationRef:
+      name: badger-keda-scaler
